@@ -7,7 +7,10 @@ use 5.010001;
 use strict;
 use warnings;
 
-# INSERT_BLOCK: Getopt::Long::Util parse_getopt_long_opt_spec
+require Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT   = qw(GetOptions);
+our @EXPORT_OK = qw(Configure GetOptionsFromArray);
 
 sub GetOptionsFromArray {
     my $argv = shift;
@@ -19,19 +22,48 @@ sub GetOptionsFromArray {
     # hash. and the spec is a list.
     if (ref($_[0]) eq 'HASH') {
         $vals = shift;
-        $spec = map {
-            $_ => sub { $vals->{ $_[0]->name } = $_[1] }
-        } @_;
+        $spec = map { $_ => sub { $vals->{ $_[0]->name } = $_[1] } } @_;
     } else {
         $spec = {@_};
     }
+
+    # parse option spec
+    my %parsed_spec;
+    for my $k (keys %$spec) {
+        my $parsed = parse_getopt_long_opt_spec($k)
+            or die "Error in option spec: $k\n";
+        $parsed_spec{$k} = $parsed;
+    }
+
+    my $i = 0;
+    my $success = 0;
+    while ($i < @$argv) {
+        $i++;
+    }
+
+    use DD; dd \%parsed_spec;
 }
 
 sub GetOptions {
-    GetOptionFromArray(\@ARGV, @_);
+    GetOptionsFromArray(\@ARGV, @_);
 }
 
 sub Configure {
+}
+
+require Getopt::Long::Util; *parse_getopt_long_opt_spec = \&Getopt::Long::Util::parse_getopt_long_opt_spec; # COMMENT
+
+# INSERT_BLOCK: Getopt::Long::Util parse_getopt_long_opt_spec
+
+package Getopt::Long::Less::Callback;
+
+sub new {
+    my $class = shift;
+    bless {@_}, $class;
+}
+
+sub name {
+    shift->{name};
 }
 
 1;
@@ -61,7 +93,8 @@ callback support.
 Also, this module requires 5.010.
 
 So what's good about this module? Slightly less compile time overhead, due to
-less code. That's it :-)
+less code. This should not matter for most people. I just like squeezing out
+milliseconds from startup overhead of my CLI scripts. That's it :-)
 
 
 =head1 SEE ALSO

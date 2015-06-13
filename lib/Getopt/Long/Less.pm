@@ -84,10 +84,11 @@ sub GetOptionsFromArray {
             for my $o (@{ $s->{opts} }) {
                 next if $short_mode && length($o) > 1;
                 if ($o eq $wanted) {
-                    # perfect match
+                    # perfect match, we immediately go with this one
                     @candidates = ($opt);
                     last OPT_SPEC;
                 } elsif (index($o, $wanted) == 0) {
+                    # prefix match, collect candidates first
                     push @candidates, $opt;
                     next OPT_SPEC;
                 }

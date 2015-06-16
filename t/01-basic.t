@@ -184,6 +184,8 @@ subtest "type" => sub {
         argv => ["--foo", "1.2"],
         success => 0,
     );
+    # unlike Getopt::Long, i decidedly don't want to allow 1_000 like in perl
+    # for now
     test_getopt(
         name => 'type checking for type=i (fail 3)',
         args => [{}, "foo=i"],
@@ -217,6 +219,8 @@ subtest "type" => sub {
         argv => ["--foo", "."],
         success => 0,
     );
+    # unlike Getopt::Long, i decidedly don't want to allow 1_000 like in perl
+    # for now
     test_getopt(
         name => 'type checking for type=f (fail 4)',
         args => [{}, "foo=f"],

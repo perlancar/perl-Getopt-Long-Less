@@ -173,40 +173,54 @@ subtest "type" => sub {
         remaining => [],
     );
     test_getopt(
-        name => 'type checking for type=i (fail)',
+        name => 'type checking for type=i (fail 1)',
         args => [{}, "foo=i"],
         argv => ["--foo", "a"],
         success => 0,
     );
+    test_getopt(
+        name => 'type checking for type=i (fail 2)',
+        args => [{}, "foo=i"],
+        argv => ["--foo", "1.2"],
+        success => 0,
+    );
+    test_getopt(
+        name => 'type checking for type=i (fail 3)',
+        args => [{}, "foo=i"],
+        argv => ["--foo", "1_000"],
+        success => 0,
+    );
 
     test_getopt(
-        name => 'type checking for type=f (success 1)',
-        args => [{}, "foo=f"],
-        argv => ["--foo", "-2"],
+        name => 'type checking for type=f (success)',
+        args => [{}, "f1=f", "f2=f", "f3=f", "f4=f", "f5=f", "f6=f"],
+        argv => [qw/--f1 1 --f2 -23 --f3 0.1 --f4 1e-4 --f5 .1 --f6 .1e1/],
         success => 1,
-        expected_res_hash => {foo=>"-2"},
+        expected_res_hash => {f1=>'1',f2=>'-23',f3=>'0.1',f4=>'1e-4',f5=>'.1',f6=>'.1e1'},
         remaining => [],
     );
     test_getopt(
-        name => 'type checking for type=f (success 2)',
-        args => [{}, "foo=f"],
-        argv => ["--foo", "+2.13"],
-        success => 1,
-        expected_res_hash => {foo=>"+2.13"},
-        remaining => [],
-    );
-    test_getopt(
-        name => 'type checking for type=f (success 2)',
-        args => [{}, "foo=f"],
-        argv => ["--foo", "-2.13e-2"],
-        success => 1,
-        expected_res_hash => {foo=>"-2.13e-2"},
-        remaining => [],
-    );
-    test_getopt(
-        name => 'type checking for type=f (fail)',
+        name => 'type checking for type=f (fail 1)',
         args => [{}, "foo=f"],
         argv => ["--foo", "e"],
+        success => 0,
+    );
+    test_getopt(
+        name => 'type checking for type=f (fail 2)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "1e"],
+        success => 0,
+    );
+    test_getopt(
+        name => 'type checking for type=f (fail 3)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "."],
+        success => 0,
+    );
+    test_getopt(
+        name => 'type checking for type=f (fail 4)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "1_000.1"],
         success => 0,
     );
 

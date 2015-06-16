@@ -151,7 +151,7 @@ sub GetOptionsFromArray {
             }
         } elsif ($parsed->{type} && $parsed->{type} eq 'f' ||
                 $parsed->{opttype} && $parsed->{opttype} eq 'f') {
-            unless ($val =~ /\A[+-]?\d+(\.\d+)?([Ee][+-]?\d+)?\z/) {
+            unless ($val =~ /\A[+-]?(\d+(\.\d+)?|\.\d+)([Ee][+-]?\d+)?\z/) {
                 warn qq|Value "$val" invalid for option $name (number expected)\n|;
                 return 0;
             }

@@ -311,6 +311,8 @@ sub name {
 1;
 #ABSTRACT: Utilities for Getopt::Long
 
+=for Pod::Coverage .+
+
 =head1 DESCRIPTION
 
 This module is a reimplementation of L<Getopt::Long>, with less
@@ -337,6 +339,10 @@ Also, this module requires 5.010.
 So what's good about this module? Slightly less compile time overhead, due to
 less code. This should not matter for most people. I just like squeezing out
 milliseconds from startup overhead of my CLI scripts. That's it :-)
+
+Sample startup overhead benchmark:
+
+# COMMAND: perl devscripts/bench-startup 2>&1
 
 
 =head1 SEE ALSO

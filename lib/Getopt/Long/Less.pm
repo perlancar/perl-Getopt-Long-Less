@@ -10,7 +10,7 @@ use warnings; # COMMENT
 our @EXPORT   = qw(GetOptions);
 our @EXPORT_OK = qw(Configure GetOptionsFromArray);
 
-my $Opts = {permute=>1, pass_through=>0};
+my $Opts = {};
 
 sub import {
     my $pkg = shift;
@@ -36,10 +36,9 @@ sub Configure {
             elsif ($_ eq 'bundling') { next }
             elsif ($_ eq 'auto_abbrev') { next }
             elsif ($_ eq 'gnu_compat') { next }
-            elsif ($_ eq 'permute') { $Opts->{permute} = 1 }
-            elsif (/\A(no_?)permute\z/) { $Opts->{permute} = $1 ?0:1 }
-            elsif (/\A(no_?)require_order\z/) { $Opts->{permute} = $1 ?1:0 }
-            elsif (/\A(no_?)pass_through\z/) { $Opts->{pass_through} = $1 ?0:1 }
+            elsif ($_ eq 'permute') { next }
+            elsif (/\Ano_?require_order\z/) { next }
+            #elsif (/\A(no_?)?pass_through\z/) { $Opts->{pass_through} = $1 ?0:1 }
             else { die "Unknown or erroneous config parameter \"$_\"\n" }
         }
     }
@@ -100,18 +99,14 @@ sub GetOptionsFromArray {
             }
         }
         if (!@candidates) {
-            unless ($Opts->{pass_through}) {
-                warn "Unknown option: $wanted\n";
-                $success = 0;
-            }
+            warn "Unknown option: $wanted\n";
+            $success = 0;
             return (undef, undef);
         } elsif (@candidates > 1) {
-            unless ($Opts->{pass_through}) {
-                warn "Option $wanted is ambiguous (" .
-                    join(", ", map {$_->[0]} @candidates) . ")\n";
-                $success = 0;
-            }
-            return (undef, undef);
+            warn "Option $wanted is ambiguous (" .
+                join(", ", map {$_->[0]} @candidates) . ")\n";
+            $success = 0;
+            return (undef, undef, 1);
         }
         return @{ $candidates[0] };
     };
@@ -131,6 +126,8 @@ sub GetOptionsFromArray {
         } else {
             if ($parsed->{is_inc} && $ref eq 'SCALAR') {
                 $val = ($$handler // 0) + 1;
+            } elsif ($parsed->{is_inc} && $vals) {
+                $val = ($vals->{$name} // 0) + 1;
             } elsif ($parsed->{type} && $parsed->{type} eq 'i' ||
                          $parsed->{opttype} && $parsed->{opttype} eq 'i') {
                 $val = 0;
@@ -142,6 +139,21 @@ sub GetOptionsFromArray {
                 $val = '';
             } else {
                 $val = $is_neg ? 0 : 1;
+            }
+        }
+
+        # type checking
+        if ($parsed->{type} && $parsed->{type} eq 'i' ||
+                $parsed->{opttype} && $parsed->{opttype} eq 'i') {
+            unless ($val =~ /\A[+-]?\d+\z/) {
+                warn qq|Value "$val" invalid for option $name (number expected)\n|;
+                return 0;
+            }
+        } elsif ($parsed->{type} && $parsed->{type} eq 'f' ||
+                $parsed->{opttype} && $parsed->{opttype} eq 'f') {
+            unless ($val =~ /\A[+-]?\d+(\.\d+)?([Ee][+-]?\d+)?\z/) {
+                warn qq|Value "$val" invalid for option $name (number expected)\n|;
+                return 0;
             }
         }
 
@@ -157,6 +169,7 @@ sub GetOptionsFromArray {
         } else {
             # no nothing
         }
+        1;
     };
 
     my $i = -1;
@@ -165,49 +178,108 @@ sub GetOptionsFromArray {
     while (++$i < @$argv) {
         if ($argv->[$i] eq '--') {
 
-            if ($Opts->{permute}) { next } else { last ELEM }
+            push @remaining, @{$argv}[$i+1 .. @$argv-1];
+            last ELEM;
 
         } elsif ($argv->[$i] =~ /\A--(.+?)(?:=(.*))?\z/) {
 
-            my $used_name = $1;
-            my ($opt, $is_neg) = $code_find_opt->($used_name);
+            my ($used_name, $val_in_opt) = ($1, $2);
+            my ($opt, $is_neg, $is_ambig) = $code_find_opt->($used_name);
             unless (defined $opt) {
-                push @remaining, $argv->[$i];
+                push @remaining, $argv->[$i] unless $is_ambig;
                 next ELEM;
             }
 
             my $spec = $parsed_spec{$opt};
             # check whether option requires an argument
             if ($spec->{type} ||
-                    $spec->{opttype} && $i+1 < @$argv && $argv->[$i+1] !~ /\A-/) {
-                # we are the last element
-                if ($i+1 >= @$argv) {
-                    unless ($Opts->{pass_through}) {
+                    $spec->{opttype} &&
+                    (defined($val_in_opt) && length($val_in_opt) || ($i+1 < @$argv && $argv->[$i+1] !~ /\A-/))) {
+                if (defined($val_in_opt)) {
+                    # argument is taken after =
+                    if (length $val_in_opt) {
+                        unless ($code_set_val->($is_neg, $opt, $val_in_opt)) {
+                            $success = 0;
+                            next ELEM;
+                        }
+                    } else {
                         warn "Option $used_name requires an argument\n";
                         $success = 0;
+                        next ELEM;
                     }
-                    last ELEM;
-                }
-                # take the next element as argument
-                if ($spec->{type} || $argv->[$i+1] !~ /\A-/) {
-                    $i++;
-                    $code_set_val->($is_neg, $opt, $argv->[$i]);
+                } else {
+                    if ($i+1 >= @$argv) {
+                        # we are the last element
+                        warn "Option $used_name requires an argument\n";
+                        $success = 0;
+                        last ELEM;
+                    }
+                    # take the next element as argument
+                    if ($spec->{type} || $argv->[$i+1] !~ /\A-/) {
+                        $i++;
+                        unless ($code_set_val->($is_neg, $opt, $argv->[$i])) {
+                            $success = 0;
+                            next ELEM;
+                        }
+                    }
                 }
             } else {
-                $code_set_val->($is_neg, $opt);
+                unless ($code_set_val->($is_neg, $opt)) {
+                    $success = 0;
+                    next ELEM;
+                }
             }
 
         } elsif ($argv->[$i] =~ /\A-(.*)/) {
 
             my $str = $1;
+          SHORT_OPT:
             while ($str =~ s/(.)//) {
+                my $used_name = $1;
                 my ($opt, $is_neg) = $code_find_opt->($1, 'short');
-                next ELEM unless defined $opt;
+                next SHORT_OPT unless defined $opt;
+
+                my $spec = $parsed_spec{$opt};
+                # check whether option requires an argument
+                if ($spec->{type} ||
+                        $spec->{opttype} &&
+                        (length($str) || ($i+1 < @$argv && $argv->[$i+1] !~ /\A-/))) {
+                    if (length $str) {
+                        # argument is taken from $str
+                        if ($code_set_val->($is_neg, $opt, $str)) {
+                            next ELEM;
+                        } else {
+                            $success = 0;
+                            next SHORT_OPT;
+                        }
+                    } else {
+                        if ($i+1 >= @$argv) {
+                            # we are the last element
+                            warn "Option $used_name requires an argument\n";
+                            $success = 0;
+                            last ELEM;
+                        }
+                        # take the next element as argument
+                        if ($spec->{type} || $argv->[$i+1] !~ /\A-/) {
+                            $i++;
+                            unless ($code_set_val->($is_neg, $opt, $argv->[$i])) {
+                                $success = 0;
+                                next ELEM;
+                            }
+                        }
+                    }
+                } else {
+                    unless ($code_set_val->($is_neg, $opt)) {
+                        $success = 0;
+                        next SHORT_OPT;
+                    }
+                }
             }
 
         } else { # argument
 
-            if ($Opts->{permute}) { next } else { last ELEM }
+            push @remaining, $argv->[$i];
+            next;
 
         }
     }
@@ -253,12 +325,12 @@ No configuring from C<use> statement. No OO interface.
 
 Much much less modes/configuration. No support for POSIXLY_CORRECT. We always do
 bundling (I<this is not Getopt::Long's default>), we never ignore case (I<this
-is not Getopt::Long's default>), we always autoabbreviate, we always do GNU
-compatibility (allow C<--opt=VAL> in addition to C<--opt VAL>). Basically the
-only modes you can configure are: pass_through, permute.
+is not Getopt::Long's default>), we always permute, we always autoabbreviate, we
+always do GNU compatibility (allow C<--opt=VAL> in addition to C<--opt VAL>).
+Basically currently there's no mode you can configure (although pass_through
+might be added in the future).
 
-No autoversion, no autohelp. No support to configure prefix pattern, No argument
-callback support.
+No autoversion, no autohelp. No support to configure prefix pattern.
 
 Also, this module requires 5.010.
 

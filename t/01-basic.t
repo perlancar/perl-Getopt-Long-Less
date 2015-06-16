@@ -8,31 +8,210 @@ use Getopt::Long::Less qw(Configure GetOptions GetOptionsFromArray);
 use Test::Exception;
 use Test::More 0.98;
 
-{
-    my $r = {};
+subtest "basics" => sub {
     test_getopt(
-        name => 'store to scalar ref',
-        args => ["foo=s"=>\$r->{foo}],
+        name => 'case sensitive',
+        args => [{}, "foo"],
+        argv => ["--Foo"],
+        success => 0,
+    );
+    test_getopt(
+        name => 'empty argv',
+        args => [{}, "foo=s"],
+        argv => [],
+        success => 1,
+        expected_res_hash => {},
+        remaining => [],
+    );
+    test_getopt(
+        name => '-- (1)',
+        args => [{}, "foo=s"],
+        argv => ["--"],
+        success => 1,
+        expected_res_hash => {},
+        remaining => [],
+    );
+    test_getopt(
+        name => '-- (2)',
+        args => [{}, "foo=s"],
+        argv => ["--", "--foo"],
+        success => 1,
+        expected_res_hash => {},
+        remaining => ["--foo"],
+    );
+
+    test_getopt(
+        name => 'unknown argument -> error (1)',
+        args => [{}, "bar=s", "foo=s"],
+        argv => ["--bar", "--val", "--qux"],
+        success => 0,
+        expected_res_hash => {bar=>"--val"},
+        remaining => ["--qux"],
+    );
+    test_getopt(
+        name => 'unknown argument -> error (2)',
+        args => [{}, "bar=s", "foo=s"],
+        argv => ["--qux", "--bar", "--val"],
+        success => 0,
+        expected_res_hash => {bar=>"--val"},
+        remaining => ["--qux"],
+    );
+    test_getopt(
+        name => 'prefix matching',
+        args => [{}, "bar=s"],
+        argv => ["--ba", "--val"],
+        success => 1,
+        expected_res_hash => {bar=>"--val"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'ambiguous prefix -> error',
+        args => [{}, "bar=s", "baz=s"],
+        argv => ["--ba", "--val"],
+        success => 0,
+        expected_res_hash => {},
+        remaining => ['--val'],
+    );
+    test_getopt(
+        name => 'missing required argument -> error',
+        args => [{}, "bar=s"],
+        argv => ["--bar"],
+        success => 0,
+        expected_res_hash => {},
+        remaining => [],
+    );
+
+    test_getopt(
+        name => 'optional argument 1',
+        args => [{}, "bar:s"],
+        argv => ["--bar"],
+        success => 1,
+        expected_res_hash => {bar=>''},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'optional argument 1',
+        args => [{}, "bar:i", "foo"],
+        argv => ["--bar", "--foo"],
+        success => 1,
+        expected_res_hash => {bar=>0, foo=>1},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'optional argument 1',
+        args => [{}, "bar:i", "foo"],
+        argv => ["--bar", 3, "--foo"],
+        success => 1,
+        expected_res_hash => {bar=>3, foo=>1},
+        remaining => [],
+    );
+};
+
+subtest "gnu compat" => sub {
+    test_getopt(
+        name => '(1)',
+        args => [{}, "foo=s"],
+        argv => ["--foo=x", "y"],
+        success => 1,
+        expected_res_hash => {foo=>"x"},
+        remaining => ["y"],
+    );
+    test_getopt(
+        name => '(2)',
+        args => [{}, "foo=s"],
+        argv => ["--foo=", "y"],
+        success => 0,
+        expected_res_hash => {},
+        remaining => ["y"],
+    );
+};
+
+subtest "handler" => sub {
+    my $h = {};
+    test_getopt(
+        name => 'nonref (noop)',
+        args => ["foo=s"=>1],
         argv => ["--foo", "val"],
         success => 1,
-        input_res_hash    => $r,
+    );
+    test_getopt(
+        name => 'scalarref',
+        args => ["foo=s"=>\$h->{foo}],
+        argv => ["--foo", "val"],
+        success => 1,
+        input_res_hash => $h,
         expected_res_hash => {foo=>"val"},
         remaining => [],
     );
-}
-
-test_getopt(
-    name => 'store to hashref (in first argument)',
-    args => [{}, "foo=s", "bar", "baz=i"],
-    argv => ["--foo", "val", "--bar", "--baz", 3],
-    success => 1,
-    expected_res_hash => {foo=>"val", bar=>1, baz=>3},
-    remaining => [],
-);
-
-subtest "default value" => sub {
     test_getopt(
-        name => 'default value for type=int',
+        name => 'hashref (in first argument)',
+        args => [{}, "foo=s", "bar", "baz=i"],
+        argv => ["--foo", "val", "--bar", "--baz", 3],
+        success => 1,
+        expected_res_hash => {foo=>"val", bar=>1, baz=>3},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'coderef',
+        args => ["foo=s" => sub { $h->{foo} = $_[1] }],
+        argv => ["--foo", "--val"],
+        success => 1,
+        input_res_hash => $h,
+        expected_res_hash => {foo=>"--val"},
+        remaining => [],
+    );
+    # XXX arrayref
+};
+
+subtest "type" => sub {
+    test_getopt(
+        name => 'type checking for type=i (success)',
+        args => [{}, "foo=i"],
+        argv => ["--foo", "-2"],
+        success => 1,
+        expected_res_hash => {foo=>"-2"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'type checking for type=i (fail)',
+        args => [{}, "foo=i"],
+        argv => ["--foo", "a"],
+        success => 0,
+    );
+
+    test_getopt(
+        name => 'type checking for type=f (success 1)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "-2"],
+        success => 1,
+        expected_res_hash => {foo=>"-2"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'type checking for type=f (success 2)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "+2.13"],
+        success => 1,
+        expected_res_hash => {foo=>"+2.13"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'type checking for type=f (success 2)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "-2.13e-2"],
+        success => 1,
+        expected_res_hash => {foo=>"-2.13e-2"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'type checking for type=f (fail)',
+        args => [{}, "foo=f"],
+        argv => ["--foo", "e"],
+        success => 0,
+    );
+
+    test_getopt(
+        name => 'default value for type=i',
         args => [{}, "foo:i"],
         argv => ["--foo"],
         success => 1,
@@ -40,7 +219,7 @@ subtest "default value" => sub {
         remaining => [],
     );
     test_getopt(
-        name => 'default value for type=float',
+        name => 'default value for type=f',
         args => [{}, "foo:f"],
         argv => ["--foo"],
         success => 1,
@@ -48,7 +227,7 @@ subtest "default value" => sub {
         remaining => [],
     );
     test_getopt(
-        name => 'default value for type=string',
+        name => 'default value for type=s',
         args => [{}, "foo:s"],
         argv => ["--foo"],
         success => 1,
@@ -79,39 +258,61 @@ subtest "default value" => sub {
         expected_res_hash => {foo=>0},
         remaining => [],
     );
-};
 
-test_getopt(
-    name => 'case sensitive',
-    args => [{}, "foo"],
-    argv => ["--Foo"],
-    success => 0,
-);
-
-subtest "bundling" => sub {
+    my $h = {};
     test_getopt(
-        name => 'bundling sensitive',
-        args => [{}, "foo"],
-        argv => ["--Foo"],
-        success => 0,
+        name => 'default value for increment option (1)',
+        args => [$h, "foo+"],
+        argv => ["--foo"],
+        success => 1,
+        expected_res_hash => {foo=>1},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for increment option (2)',
+        args => ["foo+" => \$h->{foo}],
+        argv => ["--foo", "--foo", "--foo"],
+        success => 1,
+        input_res_hash => $h,
+        expected_res_hash => {foo=>4},
+        remaining => [],
     );
 };
 
-# XXX test bundling ...
-# XXX opt: test pass_through
-# XXX opt: test permute
-# XXX test dies when we specify repeat (not supported with bundling)
-# XXX test gnu_compat (--foo val, --foo=val, --foo=)
-# XXX test only -- is accepted
-# XXX test required argument (--reqarg, --reqarg val, --reqarg --unknown, --reqarg --other)
-# XXX test optional argument (--optarg, --optarg val, --optarg --unknown, --optarg --other)
-# XXX test type checking for i
-# XXX test type checking for f
-# XXX test bool (--nofoo, --no-foo, --foo --nofoo --foo ...)
-# XXX test + (--more --more)
-# XXX test set scalar -> noop
-# XXX test set array ref
-# XXX test set subref
+subtest "bundling" => sub {
+    test_getopt(
+        name => '(1)',
+        args => [{}, "foo|f=s", "bar|b"],
+        argv => ["-fb"],
+        success => 1,
+        expected_res_hash => {foo=>"b"},
+        remaining => [],
+    );
+    test_getopt(
+        name => '(2)',
+        args => [{}, "foo|f=s", "bar|b"],
+        argv => ["-bfb"],
+        success => 1,
+        expected_res_hash => {bar=>1, foo=>"b"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'option argument from next argument',
+        args => [{}, "foo|f=s", "bar|b"],
+        argv => ["-bf", "b"],
+        success => 1,
+        expected_res_hash => {bar=>1, foo=>"b"},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'missing required argument -> error',
+        args => [{}, "foo|f=s", "bar|b"],
+        argv => ["-bf"],
+        success => 0,
+        expected_res_hash => {bar=>1},
+        remaining => [],
+    );
+};
 
 sub test_getopt {
     my %args = @_;
@@ -161,7 +362,8 @@ sub test_getopt {
         }
 
         if ($args{remaining}) {
-            is_deeply(\@argv, $args{remaining}, "remaining");
+            is_deeply(\@argv, $args{remaining}, "remaining")
+                or diag explain \@argv;
         }
 
       RETURN:

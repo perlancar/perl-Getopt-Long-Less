@@ -307,7 +307,7 @@ sub name {
 }
 
 1;
-#ABSTRACT: Utilities for Getopt::Long
+#ABSTRACT: Like Getopt::Long, but with less features
 
 =for Pod::Coverage .+
 

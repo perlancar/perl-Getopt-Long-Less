@@ -8,22 +8,95 @@ use Getopt::Long::Less qw(Configure GetOptions GetOptionsFromArray);
 use Test::Exception;
 use Test::More 0.98;
 
-my $Res_Hash;
-
 {
-    my $val;
+    my $r = {};
     test_getopt(
         name => 'store to scalar ref',
-        args => ["foo=s"=>\$val],
-        argv => ["--foo", "bar"],
+        args => ["foo=s"=>\$r->{foo}],
+        argv => ["--foo", "val"],
         success => 1,
-        input_res_hash    => {foo=>$val},
-        expected_res_hash => {foo=>"bar"},
+        input_res_hash    => $r,
+        expected_res_hash => {foo=>"val"},
         remaining => [],
     );
 }
 
-# XXX test that we are case sensitive
+test_getopt(
+    name => 'store to hashref (in first argument)',
+    args => [{}, "foo=s", "bar", "baz=i"],
+    argv => ["--foo", "val", "--bar", "--baz", 3],
+    success => 1,
+    expected_res_hash => {foo=>"val", bar=>1, baz=>3},
+    remaining => [],
+);
+
+subtest "default value" => sub {
+    test_getopt(
+        name => 'default value for type=int',
+        args => [{}, "foo:i"],
+        argv => ["--foo"],
+        success => 1,
+        expected_res_hash => {foo=>0},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for type=float',
+        args => [{}, "foo:f"],
+        argv => ["--foo"],
+        success => 1,
+        expected_res_hash => {foo=>0},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for type=string',
+        args => [{}, "foo:s"],
+        argv => ["--foo"],
+        success => 1,
+        expected_res_hash => {foo=>''},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for negatable option (positive)',
+        args => [{}, "foo!"],
+        argv => ["--foo"],
+        success => 1,
+        expected_res_hash => {foo=>1},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for negatable option (negative 1)',
+        args => [{}, "foo!"],
+        argv => ["--nofoo"],
+        success => 1,
+        expected_res_hash => {foo=>0},
+        remaining => [],
+    );
+    test_getopt(
+        name => 'default value for negatable option (negative 2)',
+        args => [{}, "foo!"],
+        argv => ["--no-foo"],
+        success => 1,
+        expected_res_hash => {foo=>0},
+        remaining => [],
+    );
+};
+
+test_getopt(
+    name => 'case sensitive',
+    args => [{}, "foo"],
+    argv => ["--Foo"],
+    success => 0,
+);
+
+subtest "bundling" => sub {
+    test_getopt(
+        name => 'bundling sensitive',
+        args => [{}, "foo"],
+        argv => ["--Foo"],
+        success => 0,
+    );
+};
+
 # XXX test bundling ...
 # XXX opt: test pass_through
 # XXX opt: test permute
@@ -39,8 +112,6 @@ my $Res_Hash;
 # XXX test set scalar -> noop
 # XXX test set array ref
 # XXX test set subref
-# XXX test set scalar ref
-# XXX test hashref as first arg
 
 sub test_getopt {
     my %args = @_;
@@ -58,8 +129,6 @@ sub test_getopt {
     };
 
     subtest $name => sub {
-        $Res_Hash = {};
-
         my $old_opts;
         $old_opts = Configure(@{ $args{configure} }) if $args{configure};
 
@@ -82,9 +151,10 @@ sub test_getopt {
 
         if ($args{expected_res_hash}) {
             # in 'input_res_hash', user supplies the hash she uses to store the
-            # options in (or if unspecified, defaults to $Res_Hash). then, it
-            # supplies the expected hash in 'expected_res_hash'.
-            my $res_hash = $args{input_res_hash} // $Res_Hash;
+            # options in (optional if first argument is hashref).
+            my $res_hash = $args{input_res_hash} //
+                (ref($args{args}[0]) eq 'HASH' ? $args{args}[0] : undef);
+            die "BUG: Please specify input_res_hash" unless $res_hash;
 
             is_deeply($res_hash, $args{expected_res_hash}, "res_hash")
                 or diag explain $res_hash;

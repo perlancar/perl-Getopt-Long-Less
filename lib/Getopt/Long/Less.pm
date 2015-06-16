@@ -69,6 +69,7 @@ sub GetOptionsFromArray {
         if (defined $parsed->{max_vals}) {
             die "Cannot repeat while bundling: $k\n";
         }
+        $parsed->{_orig} = $k;
         $parsed_spec{$parsed->{opts}[0]} = $parsed;
     }
     my @parsed_spec_opts = sort keys %parsed_spec;
@@ -81,16 +82,20 @@ sub GetOptionsFromArray {
       OPT_SPEC:
         for my $opt (@parsed_spec_opts) {
             my $s = $parsed_spec{$opt};
-            for my $o (@{ $s->{opts} }) {
-                next if $short_mode && length($o) > 1;
-                if ($o eq $wanted) {
-                    # perfect match, we immediately go with this one
-                    @candidates = ($opt);
-                    last OPT_SPEC;
-                } elsif (index($o, $wanted) == 0) {
-                    # prefix match, collect candidates first
-                    push @candidates, $opt;
-                    next OPT_SPEC;
+            for my $o0 (@{ $s->{opts} }) {
+                for my $o ($s->{is_neg} && length($o0) > 1 ?
+                               ($o0, "no$o0", "no-$o0") : ($o0)) {
+                    my $is_neg = $o0 ne $o;
+                    next if $short_mode && length($o) > 1;
+                    if ($o eq $wanted) {
+                        # perfect match, we immediately go with this one
+                        @candidates = ([$opt, $is_neg]);
+                        last OPT_SPEC;
+                    } elsif (index($o, $wanted) == 0) {
+                        # prefix match, collect candidates first
+                        push @candidates, [$opt, $is_neg];
+                        next OPT_SPEC;
+                    }
                 }
             }
         }
@@ -99,16 +104,59 @@ sub GetOptionsFromArray {
                 warn "Unknown option: $wanted\n";
                 $success = 0;
             }
-            return undef;
+            return (undef, undef);
         } elsif (@candidates > 1) {
             unless ($Opts->{pass_through}) {
                 warn "Option $wanted is ambiguous (" .
-                    join(", ", @candidates) . ")\n";
+                    join(", ", map {$_->[0]} @candidates) . ")\n";
                 $success = 0;
             }
-            return undef;
+            return (undef, undef);
         }
-        return $candidates[0];
+        return @{ $candidates[0] };
+    };
+
+    my $code_set_val = sub {
+        my $is_neg = shift;
+        my $name   = shift;
+
+        my $parsed   = $parsed_spec{$name};
+        my $spec_key = $parsed->{_orig};
+        my $handler  = $spec->{$spec_key};
+        my $ref      = ref($handler);
+
+        my $val;
+        if (@_) {
+            $val = shift;
+        } else {
+            if ($parsed->{is_inc} && $ref eq 'SCALAR') {
+                $val = ($$handler // 0) + 1;
+            } elsif ($parsed->{type} && $parsed->{type} eq 'i' ||
+                         $parsed->{opttype} && $parsed->{opttype} eq 'i') {
+                $val = 0;
+            } elsif ($parsed->{type} && $parsed->{type} eq 'f' ||
+                         $parsed->{opttype} && $parsed->{opttype} eq 'f') {
+                $val = 0;
+            } elsif ($parsed->{type} && $parsed->{type} eq 's' ||
+                         $parsed->{opttype} && $parsed->{opttype} eq 's') {
+                $val = '';
+            } else {
+                $val = $is_neg ? 0 : 1;
+            }
+        }
+
+        if ($ref eq 'CODE') {
+            my $cb = Getopt::Long::Less::Callback->new(
+                name => $name,
+            );
+            $handler->($cb, $val);
+        } elsif ($ref eq 'SCALAR') {
+            $$handler = $val;
+        } elsif ($ref eq 'ARRAY') {
+            # XXX
+        } else {
+            # no nothing
+        }
     };
 
     my $i = -1;
@@ -122,7 +170,7 @@ sub GetOptionsFromArray {
         } elsif ($argv->[$i] =~ /\A--(.+?)(?:=(.*))?\z/) {
 
             my $used_name = $1;
-            my $opt = $code_find_opt->($used_name);
+            my ($opt, $is_neg) = $code_find_opt->($used_name);
             unless (defined $opt) {
                 push @remaining, $argv->[$i];
                 next ELEM;
@@ -130,7 +178,8 @@ sub GetOptionsFromArray {
 
             my $spec = $parsed_spec{$opt};
             # check whether option requires an argument
-            if ($spec->{type} || $spec->{opttype}) {
+            if ($spec->{type} ||
+                    $spec->{opttype} && $i+1 < @$argv && $argv->[$i+1] !~ /\A-/) {
                 # we are the last element
                 if ($i+1 >= @$argv) {
                     unless ($Opts->{pass_through}) {
@@ -142,18 +191,18 @@ sub GetOptionsFromArray {
                 # take the next element as argument
                 if ($spec->{type} || $argv->[$i+1] !~ /\A-/) {
                     $i++;
-                    #$code_set_opt->($opt, $argv->[$i]);
+                    $code_set_val->($is_neg, $opt, $argv->[$i]);
                 }
+            } else {
+                $code_set_val->($is_neg, $opt);
             }
 
-        } elsif ($argv->[$i] =~ /\A-./) {
+        } elsif ($argv->[$i] =~ /\A-(.*)/) {
 
             my $str = $1;
             while ($str =~ s/(.)//) {
-                my $opt = $code_find_opt->($1, 'short');
+                my ($opt, $is_neg) = $code_find_opt->($1, 'short');
                 next ELEM unless defined $opt;
-                say "D:found short opt $opt";
-                use DD; dd $parsed_spec{$opt}; # COMMENT
             }
 
         } else { # argument

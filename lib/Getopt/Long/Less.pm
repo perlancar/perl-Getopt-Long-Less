@@ -164,8 +164,6 @@ sub GetOptionsFromArray {
             $handler->($cb, $val);
         } elsif ($ref eq 'SCALAR') {
             $$handler = $val;
-        } elsif ($ref eq 'ARRAY') {
-            # XXX
         } else {
             # no nothing
         }
@@ -333,6 +331,9 @@ Basically currently there's no mode you can configure (although pass_through
 might be added in the future).
 
 No autoversion, no autohelp. No support to configure prefix pattern.
+
+Currently no support for arrayref handler (e.g. C<<"foo=s" => \@ary>>). No
+support for array desttype (C<<'foo=s@' => ...>>).
 
 Also, this module requires 5.010.
 

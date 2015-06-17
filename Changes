@@ -1,5 +1,12 @@
 Revision history for Getopt-Long-Less
 
+0.05    2015-06-17 (PERLANCAR)
+
+	- No functional changes.
+
+	- [dzil] Use DZP:IfBuilt.
+
+
 0.04    2015-06-16 (PERLANCAR)
 
 	- [Bugfix] Allow .1 for float.

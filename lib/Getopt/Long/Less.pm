@@ -5,7 +5,9 @@ package Getopt::Long::Less;
 
 use 5.010001;
 use strict 'subs', 'vars';
-use warnings; # COMMENT
+# IFUNBUILT
+use warnings;
+# END IFUNBUILT
 
 our @EXPORT   = qw(GetOptions);
 our @EXPORT_OK = qw(Configure GetOptionsFromArray);
@@ -291,9 +293,12 @@ sub GetOptions {
     GetOptionsFromArray(\@ARGV, @_);
 }
 
-require Getopt::Long::Util; *parse_getopt_long_opt_spec = \&Getopt::Long::Util::parse_getopt_long_opt_spec; # COMMENT
-
-# INSERT_BLOCK: Getopt::Long::Util parse_getopt_long_opt_spec
+# IFBUILT
+# # INSERT_BLOCK: Getopt::Long::Util parse_getopt_long_opt_spec
+# END IFBUILT
+# IFUNBUILT
+require Getopt::Long::Util; *parse_getopt_long_opt_spec = \&Getopt::Long::Util::parse_getopt_long_opt_spec;
+# END IFUNBUILT
 
 package Getopt::Long::Less::Callback;
 

@@ -337,8 +337,8 @@ might be added in the future).
 
 No autoversion, no autohelp. No support to configure prefix pattern.
 
-Currently no support for arrayref handler (e.g. C<<"foo=s" => \@ary>>). No
-support for array desttype (C<<'foo=s@' => ...>>).
+Currently no support for arrayref handler (e.g. C<< "foo=s" => \@ary >>). No
+support for array desttype (C<< 'foo=s@' => ... >>).
 
 Also, this module requires 5.010.
 

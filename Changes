@@ -1,5 +1,10 @@
 Revision history for Getopt-Long-Less
 
+0.07    2015-12-02 (PERLANCAR)
+
+        - Allow setting empty option value '--name=' (gnu_compat).
+
+
 0.06    2015-06-17 (PERLANCAR)
 
 	- No functional changes.

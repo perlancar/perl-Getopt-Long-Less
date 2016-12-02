@@ -120,8 +120,8 @@ subtest "gnu compat" => sub {
         name => '(2)',
         args => [{}, "foo=s"],
         argv => ["--foo=", "y"],
-        success => 0,
-        expected_res_hash => {},
+        success => 1,
+        expected_res_hash => {foo=>""},
         remaining => ["y"],
     );
 };

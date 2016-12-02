@@ -38,6 +38,7 @@ sub Configure {
             elsif ($_ eq 'bundling') { next }
             elsif ($_ eq 'auto_abbrev') { next }
             elsif ($_ eq 'gnu_compat') { next }
+            elsif ($_ eq 'no_getopt_compat') { next }
             elsif ($_ eq 'permute') { next }
             elsif (/\Ano_?require_order\z/) { next }
             #elsif (/\A(no_?)?pass_through\z/) { $Opts->{pass_through} = $1 ?0:1 }
@@ -197,13 +198,7 @@ sub GetOptionsFromArray {
                     (defined($val_in_opt) && length($val_in_opt) || ($i+1 < @$argv && $argv->[$i+1] !~ /\A-/))) {
                 if (defined($val_in_opt)) {
                     # argument is taken after =
-                    if (length $val_in_opt) {
-                        unless ($code_set_val->($is_neg, $opt, $val_in_opt)) {
-                            $success = 0;
-                            next ELEM;
-                        }
-                    } else {
-                        warn "Option $used_name requires an argument\n";
+                    unless ($code_set_val->($is_neg, $opt, $val_in_opt)) {
                         $success = 0;
                         next ELEM;
                     }
@@ -331,9 +326,10 @@ No configuring from C<use> statement. No OO interface.
 Much much less modes/configuration. No support for POSIXLY_CORRECT. We always do
 bundling (I<this is not Getopt::Long's default>), we never ignore case (I<this
 is not Getopt::Long's default>), we always permute, we always autoabbreviate, we
-always do GNU compatibility (allow C<--opt=VAL> in addition to C<--opt VAL>).
-Basically currently there's no mode you can configure (although pass_through
-might be added in the future).
+always do GNU compatibility (allow C<--opt=VAL> in addition to C<--opt VAL>
+including allowing C<--opt=>), we never do getopt_compat. Basically currently
+there's no mode you can configure (although pass_through might be added in the
+future).
 
 No autoversion, no autohelp. No support to configure prefix pattern.
 

@@ -351,4 +351,6 @@ Sample startup overhead benchmark:
 
 L<Getopt::Long>
 
+If you want I<more> features intead of less, try L<Getopt::Long::More>.
+
 =cut

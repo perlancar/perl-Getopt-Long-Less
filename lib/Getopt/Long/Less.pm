@@ -120,15 +120,15 @@ sub GetOptionsFromArray {
 
         my $parsed   = $parsed_spec{$name};
         my $spec_key = $parsed->{_orig};
-        my $handler  = $spec->{$spec_key};
-        my $ref      = ref($handler);
+        my $destination = $spec->{$spec_key};
+        my $ref      = ref $destination;
 
         my $val;
         if (@_) {
             $val = shift;
         } else {
             if ($parsed->{is_inc} && $ref eq 'SCALAR') {
-                $val = ($$handler // 0) + 1;
+                $val = ($$destination // 0) + 1;
             } elsif ($parsed->{is_inc} && $vals) {
                 $val = ($vals->{$name} // 0) + 1;
             } elsif ($parsed->{type} && $parsed->{type} eq 'i' ||
@@ -164,9 +164,9 @@ sub GetOptionsFromArray {
             my $cb = Getopt::Long::Less::Callback->new(
                 name => $name,
             );
-            $handler->($cb, $val);
+            $destination->($cb, $val);
         } elsif ($ref eq 'SCALAR') {
-            $$handler = $val;
+            $$destination = $val;
         } else {
             # no nothing
         }
@@ -333,7 +333,12 @@ future).
 
 No autoversion, no autohelp. No support to configure prefix pattern.
 
-Currently no support for arrayref handler (e.g. C<< "foo=s" => \@ary >>). No
+No support for GetOptions' "hash storage mode" (where the first argument is a
+hashref) nor "classic mode" (where destination is not explicitly specified).
+Basically, the arguments need to be pairs of option specifications and
+destinations.
+
+Currently no support for arrayref destination (e.g. C<< "foo=s" => \@ary >>). No
 support for array desttype (C<< 'foo=s@' => ... >>).
 
 Also, this module requires 5.010.

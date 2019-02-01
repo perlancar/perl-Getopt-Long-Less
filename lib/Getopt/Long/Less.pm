@@ -347,15 +347,13 @@ So what's good about this module? Slightly less compile time overhead, due to
 less code. This should not matter for most people. I just like squeezing out
 milliseconds from startup overhead of my CLI scripts. That's it :-)
 
-Sample startup overhead benchmark:
-
-# COMMAND: perl devscripts/bench-startup 2>&1
-
 
 =head1 SEE ALSO
 
 L<Getopt::Long>
 
 If you want I<more> features intead of less, try L<Getopt::Long::More>.
+
+Benchmarks in L<Bencher::Scenario::GetoptModules>
 
 =cut
